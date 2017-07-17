@@ -51,7 +51,9 @@ func New(cacheFile string, debug bool) (*TLDExtract, error) {
 		if err != nil {
 			return &TLDExtract{}, err
 		}
-		ioutil.WriteFile(cacheFile, data, 0644)
+		if err = ioutil.WriteFile(cacheFile, data, 0644); err != nil {
+			return &TLDExtract{}, err
+		}
 	}
 	ts := strings.Split(string(data), "\n")
 	newMap := make(map[string]*Trie)
@@ -184,7 +186,9 @@ func subdomain(d string) (string, string) {
 }
 
 func download() ([]byte, error) {
-        u := "http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1"
+	// NOTE Upstream uses:
+	//u := "https://publicsuffix.org/list/effective_tld_names.dat"
+	u := "http://static.dnsfilter.com/effective_tld_names.dat"
 	resp, err := http.Get(u)
 	if err != nil {
 		return []byte(""), err
