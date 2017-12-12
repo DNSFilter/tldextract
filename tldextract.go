@@ -72,7 +72,7 @@ func New(cacheFile string, debug bool) (*TLDExtract, error) {
 	return &TLDExtract{CacheFile: cacheFile, rootNode: rootNode, debug: debug}, nil
 }
 
-//New create a new *TLDExtract, it may be shared between goroutines,we usually need a single instance in an application.
+// NewFromStaticList create a new *TLDExtract, it may be shared between goroutines,we usually need a single instance in an application.
 func NewFromStaticList(list string, debug bool) (*TLDExtract, error) {
 	ts := strings.Split(list, "\n")
 	newMap := make(map[string]*Trie)
