@@ -72,6 +72,25 @@ func New(cacheFile string, debug bool) (*TLDExtract, error) {
 	return &TLDExtract{CacheFile: cacheFile, rootNode: rootNode, debug: debug}, nil
 }
 
+//New create a new *TLDExtract, it may be shared between goroutines,we usually need a single instance in an application.
+func NewFromStaticList(list string, debug bool) (*TLDExtract, error) {
+	ts := strings.Split(list, "\n")
+	newMap := make(map[string]*Trie)
+	rootNode := &Trie{ExceptRule: false, ValidTld: false, matches: newMap}
+	for _, t := range ts {
+		if t != "" && !strings.HasPrefix(t, "//") {
+			t = strings.TrimSpace(t)
+			exceptionRule := t[0] == '!'
+			if exceptionRule {
+				t = t[1:]
+			}
+			addTldRule(rootNode, strings.Split(t, "."), exceptionRule)
+		}
+	}
+
+	return &TLDExtract{rootNode: rootNode, debug: debug}, nil
+}
+
 func addTldRule(rootNode *Trie, labels []string, ex bool) {
 	numlabs := len(labels)
 	t := rootNode
