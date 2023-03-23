@@ -222,7 +222,7 @@ func subdomain(d string) (string, string) {
 func download() ([]byte, error) {
 	// NOTE Upstream uses:
 	//u := "https://publicsuffix.org/list/public_suffix_list.dat"
-	u := "http://static.dnsfilter.com/effective_tld_names.dat"
+	u := "https://static.dnsfilter.com/effective_tld_names.dat"
 	resp, err := http.Get(u)
 	if err != nil {
 		return []byte(""), err
