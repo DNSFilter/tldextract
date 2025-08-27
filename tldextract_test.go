@@ -20,13 +20,6 @@ func init() {
 	}
 }
 
-func assertManual(url string, expected *Result, returned *Result, t *testing.T) {
-	if (expected.Flag == returned.Flag) && (expected.Root == returned.Root) && (expected.Sub == returned.Sub) && (expected.Tld == returned.Tld) {
-		return
-	}
-	t.Errorf("%s;expected:%+v;returned:%+v", url, expected, returned)
-}
-
 // this runs the test cases against the legacy/v1 version of the extract functionality
 // NOTE: Items called out that are different than v2
 func TestExtractLegacy(t *testing.T) {
@@ -91,7 +84,7 @@ func TestExtractLegacy(t *testing.T) {
 	}
 	for url, expected := range cases {
 		returned := tldExtract.Extract(url)
-		assertManual(url, expected, returned, t)
+		assert.Equal(t, expected, returned)
 	}
 }
 
@@ -155,7 +148,7 @@ func TestExtractV2(t *testing.T) {
 	}
 	for url, expected := range cases {
 		returned := tldExtract.ExtractV2(url)
-		assertManual(url, expected, returned, t)
+		assert.Equal(t, expected, returned)
 	}
 }
 
