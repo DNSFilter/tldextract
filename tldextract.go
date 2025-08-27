@@ -3,9 +3,10 @@ package tldextract
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -48,13 +49,13 @@ var (
 
 // New creates a new *TLDExtract, it may be shared between goroutines, we usually need a single instance in an application.
 func New(cacheFile string, debug bool) (*TLDExtract, error) {
-	data, err := ioutil.ReadFile(cacheFile)
+	data, err := os.ReadFile(cacheFile)
 	if err != nil {
 		data, err = download()
 		if err != nil {
 			return &TLDExtract{}, err
 		}
-		if err = ioutil.WriteFile(cacheFile, data, 0644); err != nil {
+		if err = os.WriteFile(cacheFile, data, 0644); err != nil {
 			return &TLDExtract{}, err
 		}
 	}
@@ -143,9 +144,7 @@ func (extract *TLDExtract) Extract(u string) *Result {
 		}
 	}
 	if !extract.noStrip {
-		if strings.HasSuffix(u, ".html") {
-			u = u[0 : len(u)-len(".html")]
-		}
+		u = strings.TrimSuffix(u, ".html")
 	}
 	if extract.debug {
 		fmt.Printf("%s;%s\n", u, input)
@@ -231,7 +230,7 @@ func download() ([]byte, error) {
 		return []byte(""), err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 
 	lines := strings.Split(string(body), "\n")
 	var buffer bytes.Buffer
@@ -255,7 +254,6 @@ func download() ([]byte, error) {
 func (extract *TLDExtract) ExtractV2(u string) *Result {
 	u = strings.ToLower(u)
 	if !extract.noValidate {
-
 		// remove a protocol from URL if present
 		u = schemaregex.ReplaceAllString(u, "")
 		i := strings.Index(u, "@")
@@ -283,9 +281,7 @@ func (extract *TLDExtract) ExtractV2(u string) *Result {
 
 	// strip off .html extension.. . ok i guess that was a thing
 	if !extract.noStrip {
-		if strings.HasSuffix(u, ".html") {
-			u = u[0 : len(u)-len(".html")]
-		}
+		u = strings.TrimSuffix(u, ".html")
 	}
 
 	// call the function to perform the extraction of data
