@@ -168,6 +168,10 @@ func TestIsValidSuffix(t *testing.T) {
 		"한국",
 		"msn.com",
 		"r.msn.com",
+		"test.kobe.jp",
+		"kobe.jp",
+		"abc.uberspace.de",
+		"zyx.uberspace.de",
 	}
 
 	notInPsl := []string{
@@ -177,6 +181,9 @@ func TestIsValidSuffix(t *testing.T) {
 		"x",
 		"invalidtld",
 		"a.b.한",
+		"city.kobe.jp",
+		"city.test.kobe.jp",
+		"def.zyx.abc.uberspace.de",
 	}
 
 	for _, url := range inPsl {
