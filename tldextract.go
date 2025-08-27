@@ -161,6 +161,7 @@ func (extract *TLDExtract) extract(url string) *Result {
 			if ip4regex.MatchString(url) {
 				return &Result{Flag: Ip4, Root: url}
 			}
+			// NOTE: IPv6 Identification does not seem to work
 			return &Result{Flag: Ip6, Root: url}
 		}
 		return &Result{Flag: Malformed}
@@ -250,10 +251,8 @@ func download() ([]byte, error) {
 
 // A modernized version of the Extract function that works less wrongly
 // Function can apply some validation/cleanup of a URL and
-//
-//	then attempt to extract the TLD/root/subdomain from it
+// then attempt to extract the TLD/root/subdomain from it
 func (extract *TLDExtract) ExtractV2(u string) *Result {
-	//input := u
 	u = strings.ToLower(u)
 	if !extract.noValidate {
 
@@ -288,9 +287,7 @@ func (extract *TLDExtract) ExtractV2(u string) *Result {
 			u = u[0 : len(u)-len(".html")]
 		}
 	}
-	//if extract.debug {
-	//	fmt.Printf("%s -> %s\n", input, u)
-	//}
+
 	// call the function to perform the extraction of data
 	return extract.extractV2(u)
 }
