@@ -2,7 +2,6 @@ package tldextract
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -10,12 +9,13 @@ import (
 	"strings"
 )
 
-//used for Result.Flag
+// used for Result.Flag
 const (
 	Malformed = iota
 	Domain
 	Ip4
 	Ip6
+	eTLD
 )
 
 type Result struct {
@@ -121,13 +121,19 @@ func addTldRule(rootNode *Trie, labels []string, ex bool) {
 }
 
 func (extract *TLDExtract) Extract(u string) *Result {
-	input := u
 	u = strings.ToLower(u)
 	if !extract.noValidate {
+		// remove a protocol from URL if present
 		u = schemaregex.ReplaceAllString(u, "")
 		i := strings.Index(u, "@")
 		if i != -1 {
 			u = u[i+1:]
+		}
+
+		// remove any trailing slash and path from URL
+		i = strings.Index(u, "/")
+		if i != -1 {
+			u = u[:i]
 		}
 
 		index := strings.IndexFunc(u, func(r rune) bool {
@@ -141,19 +147,22 @@ func (extract *TLDExtract) Extract(u string) *Result {
 			u = u[0:index]
 		}
 	}
+
+	// strip off .html extension.. . ok i guess that was a thing
 	if !extract.noStrip {
-		if strings.HasSuffix(u, ".html") {
-			u = u[0 : len(u)-len(".html")]
-		}
+		u = strings.TrimSuffix(u, ".html")
 	}
-	if extract.debug {
-		fmt.Printf("%s;%s\n", u, input)
-	}
+
+	// call the function to perform the extraction of data
 	return extract.extract(u)
 }
 
 func (extract *TLDExtract) extract(url string) *Result {
+	// first try to pull out the eTLD (aka suffix) and subdomains
 	domain, tld := extract.extractTld(url)
+
+	// if there is no eTLD parsed out, not a resolvable domain
+	//   maybe it's an IP
 	if tld == "" {
 		ip := net.ParseIP(url)
 		if ip != nil {
@@ -162,8 +171,17 @@ func (extract *TLDExtract) extract(url string) *Result {
 			}
 			return &Result{Flag: Ip6, Root: url}
 		}
+
+		// this is the default return for a domain without any valid TLD
 		return &Result{Flag: Malformed}
 	}
+
+	// if TLD but no domain, means URL is a suffix/eTLD
+	if domain == "" {
+		return &Result{Flag: eTLD, Root: "", Sub: "", Tld: tld}
+	}
+
+	// parse out the sub-domain and root
 	sub, root := subdomain(domain)
 	if domainregex.MatchString(root) {
 		return &Result{Flag: Domain, Root: root, Sub: sub, Tld: tld}
@@ -173,7 +191,10 @@ func (extract *TLDExtract) extract(url string) *Result {
 
 func (extract *TLDExtract) extractTld(url string) (domain, tld string) {
 	spl := strings.Split(url, ".")
+
+	// determine where the eTLD begins
 	tldIndex, validTld := extract.getTldIndex(spl)
+
 	if validTld {
 		domain = strings.Join(spl[:tldIndex], ".")
 		tld = strings.Join(spl[tldIndex:], ".")
@@ -195,21 +216,23 @@ func (extract *TLDExtract) getTldIndex(labels []string) (int, bool) {
 		case found && !n.ExceptRule:
 			parentValid = n.ValidTld
 			t = n
-		// Found an exception rule
+		// Found an exception rule : example: !city.kawasaki.jp
 		case found:
 			fallthrough
 		case parentValid:
 			return i + 1, true
+		// Found a wildcard suffix : example: *.otap.co
 		case starfound:
 			parentValid = true
 		default:
 			return -1, false
 		}
 	}
-	return -1, false
+	// if we get here, full URL is an eTLD/suffix
+	return 0, true
 }
 
-//return sub domain,root domain
+// return sub domain,root domain
 func subdomain(d string) (string, string) {
 	ps := strings.Split(d, ".")
 	l := len(ps)
