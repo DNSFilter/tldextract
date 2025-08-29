@@ -17,7 +17,7 @@ const (
 	Domain
 	Ip4
 	Ip6
-	eTLD
+	ETld
 )
 
 type Result struct {
@@ -310,7 +310,7 @@ func (extract *TLDExtract) extractV2(url string) *Result {
 
 	// if TLD but no domain, means URL is a suffix/eTLD
 	if domain == "" {
-		return &Result{Flag: eTLD, Root: "", Sub: "", Tld: tld}
+		return &Result{Flag: ETld, Root: "", Sub: "", Tld: tld}
 	}
 
 	// parse out the sub-domain and root
