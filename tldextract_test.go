@@ -2,6 +2,8 @@ package tldextract
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,13 @@ var (
 	tldExtract *TLDExtract
 	err        error
 )
+
+// a small, self-contained suffix list used by tests that need a fresh
+// *TLDExtract independent of the full public suffix list.
+const staticPSLSample = `com
+info
+co.uk
+`
 
 func init() {
 	tldExtract, err = New(cache, false)
@@ -196,4 +205,90 @@ func TestIsValidSuffix(t *testing.T) {
 		assert.False(t, isSuffix)
 	}
 
+}
+
+func TestNewFromStaticList(t *testing.T) {
+	extract, err := NewFromStaticList(staticPSLSample, false)
+	assert.NoError(t, err)
+
+	res := extract.Extract("www.example.com")
+	assert.Equal(t, &Result{Flag: Domain, Sub: "www", Root: "example", Tld: "com"}, res)
+}
+
+// SetNoValidate skips scheme/userinfo/fragment stripping, so a URL that would
+// normally resolve cleanly instead fails to match once it's enabled.
+func TestSetNoValidate(t *testing.T) {
+	extract, err := NewFromStaticList(staticPSLSample, false)
+	assert.NoError(t, err)
+
+	url := "http://user@example.com#frag"
+
+	res := extract.Extract(url)
+	assert.Equal(t, &Result{Flag: Domain, Sub: "", Root: "example", Tld: "com"}, res)
+
+	extract.SetNoValidate()
+	res = extract.Extract(url)
+	assert.Equal(t, &Result{Flag: Malformed}, res)
+}
+
+// SetNoStrip skips trimming a trailing ".html", so a URL that would normally
+// resolve cleanly instead fails to match once it's enabled.
+func TestSetNoStrip(t *testing.T) {
+	extract, err := NewFromStaticList(staticPSLSample, false)
+	assert.NoError(t, err)
+
+	url := "example.com.html"
+
+	res := extract.Extract(url)
+	assert.Equal(t, &Result{Flag: Domain, Sub: "", Root: "example", Tld: "com"}, res)
+
+	extract.SetNoStrip()
+	res = extract.Extract(url)
+	assert.Equal(t, &Result{Flag: Malformed}, res)
+}
+
+func TestExtractDebugMode(t *testing.T) {
+	extract, err := NewFromStaticList(staticPSLSample, true)
+	assert.NoError(t, err)
+
+	res := extract.Extract("www.example.com")
+	assert.Equal(t, &Result{Flag: Domain, Sub: "www", Root: "example", Tld: "com"}, res)
+}
+
+// The public Extract/ExtractV2 entry points truncate at the first ':', which
+// makes IPv6 literals unreachable through them (see the commented-out cases
+// in TestExtractLegacy/TestExtractV2). Exercise the underlying extract/
+// extractV2 directly to cover the Ip6 branch.
+func TestExtractIPv6(t *testing.T) {
+	ipv6 := "2600:9000:24f4:5400:d:ac18:e2c0:93a1"
+
+	res := tldExtract.extract(ipv6)
+	assert.Equal(t, &Result{Flag: Ip6, Root: ipv6}, res)
+
+	res = tldExtract.extractV2(ipv6)
+	assert.Equal(t, &Result{Flag: Ip6, Root: ipv6}, res)
+}
+
+// New downloads and caches the suffix list when the cache file doesn't exist yet.
+func TestNewDownloadsAndCachesWhenMissing(t *testing.T) {
+	cachePath := filepath.Join(t.TempDir(), "tld.cache")
+
+	extract, err := New(cachePath, false)
+	assert.NoError(t, err)
+
+	data, err := os.ReadFile(cachePath)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, data)
+
+	res := extract.Extract("www.example.com")
+	assert.Equal(t, &Result{Flag: Domain, Sub: "www", Root: "example", Tld: "com"}, res)
+}
+
+// New surfaces an error if the downloaded list can't be written to the cache path.
+func TestNewWriteFileError(t *testing.T) {
+	cachePath := filepath.Join(t.TempDir(), "missing-dir", "tld.cache")
+
+	extract, err := New(cachePath, false)
+	assert.Error(t, err)
+	assert.Equal(t, &TLDExtract{}, extract)
 }
